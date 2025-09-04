@@ -8,7 +8,7 @@ Camera::Camera(const glm::vec3& position, const glm::vec3& front, float yaw, flo
 	m_front = front;
 	m_yaw = yaw;
 	m_pitch = pitch;
-	m_projection = glm::perspective(glm::radians(70.0f), (float)800 / (float)600, 0.1f, 1000.0f);
+	m_projection = glm::perspective(glm::radians(85.0f), (float)800 / (float)600, 0.1f, 500.0f);
 	RecreateLootAt();
 }
 
@@ -63,11 +63,11 @@ void Camera::RecreateLootAt(){
 	m_lookAt = glm::lookAt(m_position, m_position + m_front, m_up);
 }
 
-glm::vec3 Camera::GetPosition() {
+glm::vec3 Camera::GetPosition() const {
 	return m_position;
 }
 
-glm::vec3 Camera::GetFront() {
+glm::vec3 Camera::GetFront() const{
 	return m_front;
 }
 

@@ -7,6 +7,8 @@
 #include "Ray.h"
 #include "AABB.h"
 
+#include <iostream>
+
 #include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -37,6 +39,8 @@ public:
 
 	bool RemoveBlock(uint8_t width, uint8_t hight, uint8_t depth);
 	bool PlaceBlock(uint8_t width, uint8_t hight, uint8_t depth, Cube::Type type);
+
+	glm::vec2 GetOrigin() { return m_origin; };
 
 private:
 	size_t CoordsToIndex(size_t depth, size_t width, size_t height) const;
@@ -74,23 +78,26 @@ inline void Chunk<Depth, Width, Height>::Generate(const PerlinNoise& rng) {
 
 template<uint8_t Depth, uint8_t Width, uint8_t Height>
 inline void Chunk<Depth, Width, Height>::Draw(ShaderProgram& shader, Camera& camera) const {
-	GLuint vao = { 0 };
-	shader.Use();
-	for (int h = 0; h < Height; h++) {
-		for (int w = 0; w < Width; w++) {
-			for (int d = 0; d < Depth; d++) {
-				if (m_data.at(CoordsToIndex(d, w, h)).m_isVisible) {
-					vao = m_palette.LookUp(m_data.at(CoordsToIndex(d, w, h)).m_type).Vao();
-					glBindVertexArray(vao);
-					glBindTexture(GL_TEXTURE_2D, m_palette.LookUp(m_data.at(CoordsToIndex(d, w, h)).m_type).Texture());
-					glm::mat4 model(1.0f);
-					model = glm::translate(model, glm::vec3(d + m_origin.x, h, w + m_origin.y));
-					shader.SetMat4("mvp", camera.Projection() * camera.View() * model);
-					glDrawArrays(GL_TRIANGLES, 0, 36);
+	if (glm::distance(glm::vec2{ m_origin.x + Depth/2, m_origin.y + Width/2 }, glm::vec2{ camera.GetPosition().x, camera.GetPosition().z }) < 100) {
+		GLuint vao = { 0 };
+		shader.Use();
+		for (int h = 0; h < Height; h++) {
+			for (int w = 0; w < Width; w++) {
+				for (int d = 0; d < Depth; d++) {
+					if (m_data.at(CoordsToIndex(d, w, h)).m_isVisible) {
+						vao = m_palette.LookUp(m_data.at(CoordsToIndex(d, w, h)).m_type).Vao();
+						glBindVertexArray(vao);
+						glBindTexture(GL_TEXTURE_2D, m_palette.LookUp(m_data.at(CoordsToIndex(d, w, h)).m_type).Texture());
+						glm::mat4 model(1.0f);
+						model = glm::translate(model, glm::vec3(d + m_origin.x, h, w + m_origin.y));
+						shader.SetMat4("mvp", camera.Projection() * camera.View() * model);
+						glDrawArrays(GL_TRIANGLES, 0, 36);
+					}
 				}
 			}
 		}
 	}
+	glBindVertexArray(0);
 }
 
 template<uint8_t Depth, uint8_t Width, uint8_t Height>
@@ -137,9 +144,10 @@ inline Ray::HitType Chunk<Depth, Width, Height>::Hit(const Ray& ray, Ray::time_t
 			for (int d = 0; d < Depth; d++) {
 				CubeData cube = m_data.at(CoordsToIndex(d, w, h));
 				if (cube.m_isVisible && cube.m_type != Cube::Type::Air) {
-					AABB cubeAABB = AABB(glm::vec3(d, h, w), glm::vec3(d + 1, h + 1, w + 1));
+					AABB cubeAABB = AABB(glm::vec3(m_origin.x + d, h, m_origin.y + w), glm::vec3(m_origin.x + d + 1, h + 1, m_origin.y + w + 1));
 					hitType = cubeAABB.Hit(ray, min, max, hitRecord);
 					if (hitType == Ray::HitType::Hit && hitRecord.m_time < maxTime) {
+						//std::cout << "\nb:" << d << "   " << w << "   " << h;
 						maxTime = hitRecord.m_time;
 						record.m_cubeIndex = glm::ivec3{d, w, h};
 
@@ -156,8 +164,9 @@ inline Ray::HitType Chunk<Depth, Width, Height>::Hit(const Ray& ray, Ray::time_t
 }
 
 template<uint8_t Depth, uint8_t Width, uint8_t Height>
-inline bool Chunk<Depth, Width, Height>::RemoveBlock(uint8_t width, uint8_t height, uint8_t depth) {
+inline bool Chunk<Depth, Width, Height>::RemoveBlock(uint8_t depth, uint8_t width, uint8_t height) {
 	size_t coords = CoordsToIndex(depth, width, height);
+	std::cout << "trying to remove: " << (int)depth << "  " << (int)height << "  " << (int)width << "\n";
 	if (m_data.at(coords).m_type != Cube::Type::Air) {
 		m_data.at(coords).m_type = Cube::Type::Air;
 		m_data.at(coords).m_isVisible = false;
@@ -170,9 +179,10 @@ inline bool Chunk<Depth, Width, Height>::RemoveBlock(uint8_t width, uint8_t heig
 
 
 template<uint8_t Depth, uint8_t Width, uint8_t Height>
-inline bool Chunk<Depth, Width, Height>::PlaceBlock(uint8_t width, uint8_t height, uint8_t depth, Cube::Type type) {
+inline bool Chunk<Depth, Width, Height>::PlaceBlock(uint8_t depth, uint8_t width, uint8_t height, Cube::Type type) {
 	size_t coords = CoordsToIndex(depth, width, height);
-	if (m_data.at(coords).m_type == Cube::Type::Air) {
+	std::cout << "trying to place: " << (int)depth << "  " << (int)height << "  " << (int)width << "\n";
+	if (height < Height && m_data.at(coords).m_type == Cube::Type::Air) {
 		m_data.at(coords).m_type = type;
 		UpdateVisibility();
 		return true;

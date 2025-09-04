@@ -18,8 +18,8 @@ public:
 	void MoveUp(float dt);
 	void MoveDown(float dt);
 
-	glm::vec3 GetPosition();
-	glm::vec3 GetFront();
+	glm::vec3 GetPosition() const;
+	glm::vec3 GetFront() const;
 
 private:
 	void RecreateLootAt();
